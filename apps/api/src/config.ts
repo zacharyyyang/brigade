@@ -1,7 +1,9 @@
+import { fileURLToPath } from 'node:url'
 import { z } from 'zod'
 
 /** A path next to this file's folder. Workers have no files (nor import.meta.url): unused there. */
-const near = (path: string) => (import.meta.url ? new URL(path, import.meta.url).pathname : path)
+const near = (path: string) =>
+  import.meta.url ? fileURLToPath(new URL(path, import.meta.url)) : path
 
 const Env = z.object({
   PORT: z.coerce.number().default(3001),

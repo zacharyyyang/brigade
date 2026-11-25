@@ -5,7 +5,7 @@ import { readFileSync, writeFileSync, mkdirSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { join } from 'node:path'
 
-const root = new URL('..', import.meta.url).pathname
+const root = fileURLToPath(new URL('..', import.meta.url))
 const source = readFileSync(fileURLToPath(import.meta.resolve('modern-screenshot')), 'utf8')
 mkdirSync(join(root, 'src/generated'), { recursive: true })
 writeFileSync(

@@ -3,9 +3,10 @@
 // its playbook.yaml, parsed, and its text files by path. src/playbooks.ts checks them when it loads.
 import { readdirSync, readFileSync, statSync, writeFileSync, mkdirSync } from 'node:fs'
 import { join, relative } from 'node:path'
+import { fileURLToPath } from 'node:url'
 import { parse } from 'yaml'
 
-const root = new URL('..', import.meta.url).pathname
+const root = fileURLToPath(new URL('..', import.meta.url))
 const dir = join(root, 'playbooks')
 const out = join(root, 'src/generated/playbooks.ts')
 
@@ -17,7 +18,7 @@ function files(folder) {
       if (name.startsWith('.')) continue
       const path = join(at, name)
       if (statSync(path).isDirectory()) walk(path)
-      else found[relative(folder, path)] = readFileSync(path, 'utf8')
+      else found[relative(folder, path).replaceAll('\\', '/')] = readFileSync(path, 'utf8')
     }
   }
   walk(folder)
