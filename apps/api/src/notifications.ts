@@ -405,8 +405,10 @@ export async function workspaceItems(scope: Scope, members: Recipient[], now: Da
       key,
       workspaceId,
       needs: true,
-      title: `${s.teammate.name} needs you to pick one`,
-      body: choice.question,
+      title: choice.directReply
+        ? `${s.teammate.name} needs your reply`
+        : `${s.teammate.name} needs you to pick one`,
+      body: choice.directReply ? s.title : choice.question,
       url: threadUrl(workspaceId, s.id),
       tag: s.id,
     })

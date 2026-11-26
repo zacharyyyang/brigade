@@ -428,9 +428,9 @@ export function DashboardShell({ children }: { children: ReactNode }) {
     if (r.runParentId) needsYou[r.runParentId] ??= 'routine failed'
     badge.add(`routine:${r.scheduleId}`)
   }
-  // Threads whose teammate offered choices nobody picked (apps/api/src/choices-waiting.ts).
+  // Threads whose teammate offered choices or next-step replies nobody answered (apps/api/src/choices-waiting.ts).
   for (const c of choosing) {
-    needsYou[c.id] ??= 'pick one'
+    needsYou[c.id] ??= c.directReply ? 'reply' : 'pick one'
     badge.add(c.id)
   }
 

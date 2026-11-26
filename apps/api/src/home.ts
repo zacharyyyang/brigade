@@ -335,6 +335,7 @@ export async function homeWaiting(db: ScopedDb, memberId: string, now = new Date
       seq: c.seq,
       at: c.at.toISOString(),
       choices: c.choices,
+      ...(c.directReply ? { directReply: true } : {}),
     })),
     threads: threads.map((t) => ({
       id: t.id,

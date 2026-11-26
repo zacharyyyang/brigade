@@ -13,7 +13,16 @@
 // joined, nor once the thread is archived or done. It waits on whoever started the thread,
 // unless they put it away for later; the boards, which every member shares, take it whoever
 // started it.
-import { type Choices, OFFER_CHOICES_TOOL, safeChoices, STOPPED_DAYS } from '@brigade/contracts'
+import {
+  bareToolName,
+  type Choices,
+  OFFER_CHOICES_TOOL,
+  safeChoices,
+  safeReplies,
+  STOPPED_DAYS,
+  SUGGEST_REPLIES_TOOL,
+  THREAD_NOTE_SOURCE,
+} from '@brigade/contracts'
 import type { Prisma, ScopedDb } from './db.js'
 
 const DAY = 24 * 60 * 60_000
@@ -32,16 +41,22 @@ export const CHOICE_THREAD = {
   OR: [{ playbookRunId: null, quiet: false }, { surfacedAt: { not: null } }],
 } satisfies Prisma.SessionWhereInput
 
-/** Choices a teammate offered that nobody picked: its card's event, since when, what it asks. */
-export type ChoiceWaiting = { seq: number; at: Date; question: string; choices: Choices }
+/** Choices (or suggested next-step replies) a teammate offered that nobody answered yet. */
+export type ChoiceWaiting = {
+  seq: number
+  at: Date
+  question: string
+  choices: Choices
+  /** True when built from `suggest_replies`: clicking an option sends its exact text, not "Go with …". */
+  directReply?: boolean
+}
 
 /** A thread, with the choices card a person dismissed, if any: it and those before it are closed. */
-type Floor = { id: string; choicesDismissedSeq: number | null }
+type Floor = { id: string; title?: string; choicesDismissedSeq: number | null }
 
 /**
- * The choices card each of these threads ended on that nobody answered: the latest one after
- * the last message in it and the card dismissed, offered `since` then if given. Every one of
- * them, read a chunk at a time.
+ * The choices or suggested-replies card each of these threads ended on that nobody answered:
+ * the latest one after the last message, settling note, or dismissal, offered `since` then if given.
  */
 async function choicesOf(db: ScopedDb, threads: Floor[], since: Date | null) {
   const found = new Map<string, ChoiceWaiting>()
@@ -54,36 +69,95 @@ async function choicesOf(db: ScopedDb, threads: Floor[], since: Date | null) {
 async function chunkChoices(db: ScopedDb, threads: Floor[], since: Date | null) {
   const found = new Map<string, ChoiceWaiting>()
   if (!threads.length) return found
-  const written = await db.sessionEvent.groupBy({
-    by: ['sessionId'],
-    where: { sessionId: { in: threads.map((t) => t.id) }, type: 'message.user' },
-    _max: { seq: true },
-  })
+  const ids = threads.map((t) => t.id)
+  const [written, notes, closedPulls] = await Promise.all([
+    db.sessionEvent.groupBy({
+      by: ['sessionId'],
+      where: { sessionId: { in: ids }, type: 'message.user' },
+      _max: { seq: true },
+    }),
+    db.sessionEvent.groupBy({
+      by: ['sessionId'],
+      where: {
+        sessionId: { in: ids },
+        type: 'raw',
+        data: { path: ['source'], equals: THREAD_NOTE_SOURCE },
+      },
+      _max: { seq: true },
+    }),
+    db.pullRequest.findMany({
+      where: { sessionId: { in: ids }, state: { in: ['merged', 'closed'] } },
+      select: { sessionId: true, updatedAt: true, mergedAt: true },
+    }),
+  ])
   const after = new Map(threads.map((t) => [t.id, t.choicesDismissedSeq ?? -1]))
   for (const w of written)
     after.set(w.sessionId, Math.max(after.get(w.sessionId) ?? -1, w._max.seq ?? -1))
+  const noteSeq = new Map(notes.map((n) => [n.sessionId, n._max.seq ?? -1]))
+  const titleById = new Map(threads.map((t) => [t.id, t.title]))
   // Only what came after each one's last message: one turn or a few, never the whole thread.
   const offers = await db.sessionEvent.findMany({
     where: {
-      OR: threads.map((t) => ({ sessionId: t.id, seq: { gt: after.get(t.id) ?? -1 } })),
+      AND: [
+        { OR: threads.map((t) => ({ sessionId: t.id, seq: { gt: after.get(t.id) ?? -1 } })) },
+        {
+          OR: [
+            { data: { path: ['toolName'], string_ends_with: OFFER_CHOICES_TOOL } },
+            { data: { path: ['toolName'], string_ends_with: SUGGEST_REPLIES_TOOL } },
+          ],
+        },
+      ],
       type: 'tool.started',
       ...(since ? { at: { gte: since } } : {}),
-      data: { path: ['toolName'], string_ends_with: OFFER_CHOICES_TOOL },
     },
     orderBy: { seq: 'desc' },
     select: { sessionId: true, seq: true, at: true, data: true },
   })
   for (const offer of offers) {
     if (found.has(offer.sessionId)) continue
-    // As the thread's card reads it: one it could not show does not wait on anyone.
-    const choices = safeChoices((offer.data as { input?: unknown } | null)?.input)
-    if (choices)
+    const data = offer.data as { toolName?: unknown; input?: unknown } | null
+    const tool = bareToolName(String(data?.toolName ?? ''))
+    if (tool === OFFER_CHOICES_TOOL) {
+      // As the thread's card reads it: one it could not show does not wait on anyone.
+      const choices = safeChoices(data?.input)
+      if (choices)
+        found.set(offer.sessionId, {
+          seq: offer.seq,
+          at: offer.at,
+          question: choices.question,
+          choices,
+        })
+      continue
+    }
+    if (tool === SUGGEST_REPLIES_TOOL) {
+      // A settling note (e.g. merged PR) or closed PR settles suggested next-step replies.
+      if ((noteSeq.get(offer.sessionId) ?? -1) > offer.seq) continue
+      if (
+        closedPulls.some(
+          (p) => p.sessionId === offer.sessionId && (p.mergedAt ?? p.updatedAt) > offer.at,
+        )
+      )
+        continue
+      const replies = safeReplies(data?.input)
+      if (!replies) continue
+      const labels = [
+        ...replies.replies,
+        // Action-only buttons (merge/preview) have no text reply of their own; still include if no text replies exist.
+        ...(replies.replies.length ? [] : (replies.actions ?? []).map((a) => a.label)),
+      ].slice(0, 6)
+      if (!labels.length) continue
+      const question = titleById.get(offer.sessionId) || 'Next step waiting for your reply'
       found.set(offer.sessionId, {
         seq: offer.seq,
         at: offer.at,
-        question: choices.question,
-        choices,
+        question,
+        directReply: true,
+        choices: {
+          question,
+          options: labels.map((label, i) => ({ id: `reply-${i + 1}`, label })),
+        },
       })
+    }
   }
   return found
 }
@@ -111,7 +185,7 @@ export async function choicesWaitingAmong(
   if (!sessionIds.length) return new Map()
   const threads = await db.session.findMany({
     where: { id: { in: sessionIds }, ...CHOICE_THREAD },
-    select: { id: true, choicesDismissedSeq: true },
+    select: { id: true, title: true, choicesDismissedSeq: true },
   })
   return choicesOf(db, threads, recent(now))
 }

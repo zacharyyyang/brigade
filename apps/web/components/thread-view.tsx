@@ -4730,6 +4730,7 @@ export function ChoicesCard({
   choices,
   reply,
   dismissed = false,
+  directReply = false,
   onChoose,
   onDismiss,
   onSnooze,
@@ -4739,6 +4740,8 @@ export function ChoicesCard({
   reply?: string
   /** A person closed it without picking (docs/board.md). */
   dismissed?: boolean
+  /** Send the option label verbatim instead of wrapping with "Go with …". */
+  directReply?: boolean
   onChoose?: (text: string, pick?: string) => Promise<void>
   /** Closes it without picking: the thread stops, no turn starts. */
   onDismiss?: () => Promise<void>
@@ -4811,6 +4814,7 @@ export function ChoicesCard({
   function choose(option: Choices['options'][number]) {
     if (!onChoose) return
     void send(option.id, () => {
+      if (directReply) return onChoose(option.label)
       // A design from an options folder becomes the design: the message says where.
       const design = option.design?.replace(/\/+$/, '')
       const options = design && designOptionsOf(design)

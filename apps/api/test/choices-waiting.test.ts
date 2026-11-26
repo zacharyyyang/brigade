@@ -196,7 +196,7 @@ test('choices nobody picked wait on a person, until someone writes', { skip }, a
     { brigade: 'Wake-up: check the deploy' },
     { reply: 'Deployed.' },
   ])
-  // Reply buttons offer a next step a person may leave: they never wait.
+  // Reply buttons proposing a next step also wait on a person until answered or dismissed.
   const buttons = await thread([{ person: 'Fix it' }, { offers: 'replies' }])
   const none = await thread([{ person: 'Hello' }, { reply: 'Hi' }])
   const old = await thread([{ person: 'Rename Home' }, { offers: 'choices', ago: 8 * DAY }])
@@ -210,9 +210,14 @@ test('choices nobody picked wait on a person, until someone writes', { skip }, a
     none.id,
     old.id,
   ])
-  assert.deepEqual([...waiting.keys()].sort(), [offered.id, again.id].sort())
+  assert.deepEqual([...waiting.keys()].sort(), [offered.id, again.id, buttons.id].sort())
   assert.equal(waiting.get(offered.id)?.question, QUESTION)
   assert.equal(waiting.get(offered.id)?.choices.options.length, 2)
+  assert.equal(waiting.get(buttons.id)?.directReply, true)
+  assert.deepEqual(
+    waiting.get(buttons.id)?.choices.options.map((o) => o.label),
+    ['Build it', 'Not yet'],
+  )
 })
 
 test(

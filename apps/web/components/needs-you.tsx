@@ -293,9 +293,14 @@ function ChoiceToMake({ choice, onAnswer }: { choice: ChoiceWaiting; onAnswer: A
   const { reloadThreads } = useThreadPanel()
   return (
     <div className="flex flex-col gap-1.5">
-      <From teammate={choice.teammate} thread={choice} note="pick one" />
+      <From
+        teammate={choice.teammate}
+        thread={choice}
+        note={choice.directReply ? 'needs your reply' : 'pick one'}
+      />
       <ChoicesCard
         choices={choice.choices}
+        directReply={choice.directReply}
         onChoose={(text, pick) =>
           onAnswer(`Sent to ${choice.teammate.name}`, () =>
             // With the design it makes, when the option is one in an options folder.

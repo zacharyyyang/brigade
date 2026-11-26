@@ -1385,6 +1385,8 @@ export type ChoiceWaiting = {
   /** When they were offered. */
   at: string
   choices: Choices
+  /** True when built from `suggest_replies`: clicking an option sends its exact text. */
+  directReply?: boolean
 }
 
 /**
