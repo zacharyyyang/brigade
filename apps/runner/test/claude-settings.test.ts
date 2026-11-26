@@ -1,6 +1,13 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
-import { CLAUDE_SETTINGS, claudeSettingsEnv } from '../src/harness/claude-settings.js'
+import {
+  CLAUDE_SETTINGS,
+  claudeSettingsEnv,
+  isReadOnlyRole,
+  PROTECTED_CONFIG_DENY_RULES,
+  READ_ONLY_DENIED_TOOLS,
+  READ_ONLY_ROLE_MARKER,
+} from '../src/harness/claude-settings.js'
 
 test("Claude Code's own schedules, memory and other sessions are off in Brigade", () => {
   for (const tool of ['CronCreate', 'ScheduleWakeup', 'ListAgents', 'Workflow', 'RemoteTrigger'])
@@ -47,4 +54,18 @@ test("Claude Code's privacy mod is off, which nobody could answer, and no other 
 
 test('fork sub-agents stay off, as before Claude Code turned them on in SDK sessions', () => {
   assert.equal(claudeSettingsEnv().CLAUDE_CODE_FORK_SUBAGENT, '0')
+})
+
+test('read-only governance roles deny Edit/Write/NotebookEdit and protectConfig denies global CLI dirs', () => {
+  assert.equal(isReadOnlyRole(`You are Lead.\n${READ_ONLY_ROLE_MARKER}`), true)
+  assert.equal(isReadOnlyRole('You are Builder.'), false)
+  assert.equal(isReadOnlyRole(undefined), false)
+
+  const env = claudeSettingsEnv({ readOnly: true, protectConfig: true })
+  const parsed = JSON.parse(env.BRIGADE_CLAUDE_SETTINGS!)
+  for (const tool of READ_ONLY_DENIED_TOOLS) assert.ok(parsed.permissions.deny.includes(tool), tool)
+  for (const rule of PROTECTED_CONFIG_DENY_RULES)
+    assert.ok(parsed.permissions.deny.includes(rule), rule)
+  // Default CLAUDE_SETTINGS remains untouched
+  assert.ok(!CLAUDE_SETTINGS.permissions.deny.includes('Edit'))
 })

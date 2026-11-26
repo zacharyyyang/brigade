@@ -32,6 +32,7 @@ import {
 } from '@brigade/contracts'
 import { CLOUD } from './config.js'
 import { WINDOWS } from './windows.js'
+import { isReadOnlyRole } from './harness/claude-settings.js'
 import {
   memorySection,
   MEMORY_DIR,
@@ -142,6 +143,7 @@ export function instructions(
     projects(spec),
     brigadeItself(spec),
     spec.teammate.kind === 'chief' && chief(spec),
+    governanceGuardrails(spec),
     visuals(spec),
     replies(spec),
     spec.rules && rules(spec.rules),
@@ -186,6 +188,29 @@ export function instructions(
     .filter(Boolean)
     .join('\n\n')
     .concat('\n')
+}
+
+/**
+ * Workspace-wide governance guardrails distilled from ThinCoder supervisor & controlled experiments:
+ * no silent fallbacks, no global CLI config drift, real clock timestamps, bounded rework loops,
+ * and strict no-authoring enforcement for [role:read-only] teammates.
+ */
+function governanceGuardrails(spec: ThreadSpec) {
+  const readOnly = isReadOnlyRole(spec.teammate.instructions)
+  const lines = [
+    '## Governance guardrails',
+    '- **No silent fallbacks or swallowed errors.** Never add unrequested fallback values, silent degradation, `except: return 0/None`, or guessed completions. When an assertion fails, a command/field is missing, or data shape is unexpected, stop and report the exact failure.',
+    '- **Never modify global tool configs.** Never edit or overwrite `~/.claude/`, `~/.brigade/`, `~/.thincoder/`, `~/.codex/`, or global settings files.',
+    '- **Read the real system clock before writing timestamps.** Never estimate times from conversation clues; run `date "+%Y-%m-%d %H:%M"` (or PowerShell `Get-Date`) before logging timestamps.',
+    '- **Bound every rework loop.** Never exceed 2 rework rounds on the same defect; if still unresolved after round 2, stop and escalate to the person via `choices` / `replies` (which surface in Needs you).',
+    '- **Scope searches to source directories.** Never run recursive grep/find across large artifact, `node_modules`, `.next`, `dist`, or multi-GB output folders.',
+  ]
+  if (readOnly) {
+    lines.push(
+      '- **Strict read-only governance role (`[role:read-only]`).** File-writing tools (`Edit`, `Write`, `NotebookEdit`) are denied by the harness. Never modify project files via shell redirection or scripts either, and never attach copy-pasteable implementation scripts for executors to copy. Delegate all code/data changes via `start_child` or `message_thread`, and verify independently with read-only checks (re-run tests, inspect `git diff`/headers/files directly, never trust self-reports alone).',
+    )
+  }
+  return lines.join('\n')
 }
 
 /**

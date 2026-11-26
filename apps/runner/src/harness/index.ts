@@ -101,7 +101,7 @@ import {
   toolsOfUnknownAge,
   type ToolSpec,
 } from './tool-changes.js'
-import { claudeSettingsEnv } from './claude-settings.js'
+import { claudeSettingsEnv, isReadOnlyRole } from './claude-settings.js'
 import { CODEX_SETTINGS } from './codex-settings.js'
 import { harnessEnv } from './env.js'
 import { useSharedBridge } from '../shared-bridges.js'
@@ -2802,7 +2802,12 @@ export class HarnessThread {
               ...env,
               ...terminalTools(tools),
               // Claude Code's own schedules, memory and the like are off (claude-settings.ts).
-              ...claudeSettingsEnv(),
+              // Also protect global CLI config dirs on member machines and enforce no-authoring
+              // guardrails for [role:read-only] governance roles (supervisor / reviewer).
+              ...claudeSettingsEnv({
+                protectConfig: !CLOUD,
+                readOnly: isReadOnlyRole(this.spec.teammate.instructions),
+              }),
               ...(this.spec.suggestions ? { BRIGADE_PROMPT_SUGGESTIONS: '1' } : {}),
             },
       ...(this.runAs ? { runAs: this.runAs, thread: this.spec.sessionId } : {}),

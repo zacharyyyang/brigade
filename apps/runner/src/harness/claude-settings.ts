@@ -52,6 +52,34 @@ export const CLAUDE_SETTINGS = {
 }
 
 /**
+ * Write-only tools denied to read-only governance roles (e.g. a supervisor or reviewer whose
+ * instructions explicitly declare `[role:read-only]`): prevents a supervisor from authoring code
+ * or scripts on behalf of the executor, preserving independent verification.
+ */
+export const READ_ONLY_DENIED_TOOLS = ['Edit', 'Write', 'NotebookEdit'] as const
+
+/**
+ * Config paths protected from teammate edits: prevents an executor under allow-all from drifting
+ * global CLI/gateway settings (such as ~/.claude, ~/.brigade, ~/.thincoder, ~/.codex).
+ */
+export const PROTECTED_CONFIG_DENY_RULES = [
+  'Edit(~/.claude/**)',
+  'Write(~/.claude/**)',
+  'Edit(~/.brigade/**)',
+  'Write(~/.brigade/**)',
+  'Edit(~/.thincoder/**)',
+  'Write(~/.thincoder/**)',
+  'Edit(~/.codex/**)',
+  'Write(~/.codex/**)',
+] as const
+
+/** Marker in a teammate's instructions that turns on strict no-authoring guardrails. */
+export const READ_ONLY_ROLE_MARKER = '[role:read-only]'
+
+export const isReadOnlyRole = (instructions?: string | null) =>
+  typeof instructions === 'string' && instructions.includes(READ_ONLY_ROLE_MARKER)
+
+/**
  * Claude Code's environment for what no setting turns off. Fork sub-agents (an Agent call
  * with subagent_type "fork", which starts from the whole conversation), on by default in SDK
  * sessions since Claude Code 2.1.302, stay off as before it: turning them on is a choice of its own.
@@ -61,9 +89,29 @@ const CLAUDE_ENV = { CLAUDE_CODE_FORK_SUBAGENT: '0' }
 /**
  * The environment that gives a Claude Code session Brigade's settings, and the thread's own
  * tools its sub-agents may not call (thread-tools.ts).
+ * Pass `{ readOnly: true }` for read-only governance roles (supervisor / red-team reviewer), and
+ * `{ protectConfig: true }` on member machines to block global config drift.
  */
-export const claudeSettingsEnv = (): Record<string, string> => ({
-  ...CLAUDE_ENV,
-  BRIGADE_CLAUDE_SETTINGS: JSON.stringify(CLAUDE_SETTINGS),
-  ...threadToolsEnv(),
-})
+export const claudeSettingsEnv = (options?: {
+  readOnly?: boolean
+  protectConfig?: boolean
+}): Record<string, string> => {
+  const extraDeny = [
+    ...(options?.protectConfig ? PROTECTED_CONFIG_DENY_RULES : []),
+    ...(options?.readOnly ? READ_ONLY_DENIED_TOOLS : []),
+  ]
+  const settings = extraDeny.length
+    ? {
+        ...CLAUDE_SETTINGS,
+        permissions: {
+          ...CLAUDE_SETTINGS.permissions,
+          deny: [...CLAUDE_SETTINGS.permissions.deny, ...extraDeny],
+        },
+      }
+    : CLAUDE_SETTINGS
+  return {
+    ...CLAUDE_ENV,
+    BRIGADE_CLAUDE_SETTINGS: JSON.stringify(settings),
+    ...threadToolsEnv(),
+  }
+}

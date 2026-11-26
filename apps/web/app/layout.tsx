@@ -46,7 +46,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
         {/* A worn theme's colours from the first paint (docs/themes.md). */}
         <script dangerouslySetInnerHTML={{ __html: THEME_FIRST_PAINT }} />
       </head>
-      <body>
+      <body suppressHydrationWarning>
         <LookProvider>
           <TooltipProvider>{children}</TooltipProvider>
         </LookProvider>
