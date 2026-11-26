@@ -52,6 +52,36 @@ const CLAUDE_MODELS = [
     description: 'Fastest and cheapest, for simple tasks.',
     effort: 'medium',
   },
+  {
+    id: 'claude-mythos-1',
+    label: 'DeepSeek · V4.1 Flash (GenUR)',
+    description: 'GenUR CC Multi shell → deepseek-v4.1-flash-1017.',
+    effort: 'medium',
+  },
+  {
+    id: 'claude-mythos-2',
+    label: 'Gemini · 3.8 Flash (GenUR)',
+    description: 'GenUR CC Multi shell → gemini-3.8-flash.',
+    effort: 'medium',
+  },
+  {
+    id: 'claude-mythos-4',
+    label: 'Gemini · 4 Argon (GenUR)',
+    description: 'GenUR CC Multi shell → gemini-4-argon.',
+    effort: 'medium',
+  },
+  {
+    id: 'claude-mythos-8',
+    label: 'Gemini · 4 Hydrogen 1M (GenUR)',
+    description: 'GenUR CC Multi shell → gemini-4-hydrogen (1M).',
+    effort: 'medium',
+  },
+  {
+    id: 'claude-mythos-9',
+    label: 'Gemini · 4 Neon 1M (GenUR)',
+    description: 'GenUR CC Multi shell → gemini-4-neon (1M).',
+    effort: 'medium',
+  },
 ] as const satisfies readonly HarnessModel[]
 
 const CODEX_MODELS = [
