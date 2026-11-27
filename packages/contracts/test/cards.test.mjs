@@ -12,16 +12,22 @@ test('takes the replies block off the end of a reply', () => {
 })
 
 test('keeps three replies, cut at a word to fit a button', () => {
-  const long = 'Merge #148 et teste BigQuery puis la tuile Google Cloud'
+  const long =
+    'Merge #148 et teste BigQuery puis la tuile Google Cloud et verifie aussi les permissions de deploiement en production avant de publier la nouvelle version'
   const { replies } = replyCard(`${reply}\n\`\`\`replies\n${long}\nA\nB\nC\n\`\`\``)
-  assert.deepEqual(replies?.replies, ['Merge #148 et teste BigQuery puis la', 'A', 'B'])
+  assert.equal(replies?.replies.length, 3)
+  assert.ok((replies?.replies[0]?.length ?? 0) <= 120)
+  assert.ok(long.startsWith(replies?.replies[0] ?? ''))
+  assert.equal(replies?.replies[1], 'A')
+  assert.equal(replies?.replies[2], 'B')
 
-  // CJK lines with an early ASCII space must not collapse to the prefix before that space.
+  // CJK lines with an early ASCII space stay intact up to SUGGESTED_REPLY_MAX (120) and do not collapse to the prefix before that space.
   const cjk1 =
     '删掉 #4530，升级算法加语义查重和分语种，官网只发英文文章（按真正英文缺口重建首篇草稿）'
   const cjk2 = '删掉 #4530，升级算法加语义查重和分语种，官网也允许发日语/波兰语/印尼语/繁中文章'
-  const cjk = replyCard(`${reply}\n\`\`\`replies\n${cjk1}\n${cjk2}\n\`\`\``)
-  assert.deepEqual(cjk.replies?.replies, [cjk1.slice(0, 40), cjk2.slice(0, 40)])
+  const cjkLong = `${cjk1}，并且额外补齐单测、回归门禁与上线前验证清单，确保不会再发生任何重复建稿或语种混桶的情况，同时通知运营确认`
+  const cjk = replyCard(`${reply}\n\`\`\`replies\n${cjk1}\n${cjk2}\n${cjkLong}\n\`\`\``)
+  assert.deepEqual(cjk.replies?.replies, [cjk1, cjk2, cjkLong.slice(0, 120)])
 })
 
 test('reads choices as JSON, and keeps designs only from one options folder', () => {

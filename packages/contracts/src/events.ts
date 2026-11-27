@@ -97,7 +97,7 @@ export const pickedChoice = <O extends { label: string }>(options: O[], message:
 export const SUGGEST_REPLIES_TOOL = 'suggest_replies'
 /** Text a person can see: not only spaces or zero-width characters. */
 export const hasVisibleText = (text: string) => /[^\s\u200b-\u200d\u2060\ufeff]/.test(text)
-export const SUGGESTED_REPLY_MAX = 40
+export const SUGGESTED_REPLY_MAX = 120
 /**
  * What a button may do instead of sending its text: Brigade's own action, shown
  * only while it can be done. merge: the pull request opened last in the thread.

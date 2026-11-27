@@ -5149,7 +5149,7 @@ function SuggestedReplyButtons({
             type="button"
             size="sm"
             variant="outline"
-            className="rounded-full"
+            className="h-auto min-h-8 max-w-full rounded-2xl py-1.5 text-left whitespace-normal"
             onClick={() => void send(reply)}
           >
             {reply}
