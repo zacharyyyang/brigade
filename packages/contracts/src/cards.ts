@@ -230,7 +230,13 @@ function clip(line: string) {
   if (text.length <= SUGGESTED_REPLY_MAX) return text
   const cut = text.slice(0, SUGGESTED_REPLY_MAX + 1)
   const space = cut.lastIndexOf(' ')
-  return (space > 0 ? cut.slice(0, space) : cut.slice(0, SUGGESTED_REPLY_MAX)).trim()
+  // Only break at a space when it sits in the back half: CJK lines with an early space
+  // (e.g. "删掉 #4530，...") would otherwise collapse to a two-character prefix.
+  return (
+    space >= Math.floor(SUGGESTED_REPLY_MAX / 2)
+      ? cut.slice(0, space)
+      : cut.slice(0, SUGGESTED_REPLY_MAX)
+  ).trim()
 }
 
 function json(text: string): unknown {

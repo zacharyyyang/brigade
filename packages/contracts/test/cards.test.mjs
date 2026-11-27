@@ -15,6 +15,13 @@ test('keeps three replies, cut at a word to fit a button', () => {
   const long = 'Merge #148 et teste BigQuery puis la tuile Google Cloud'
   const { replies } = replyCard(`${reply}\n\`\`\`replies\n${long}\nA\nB\nC\n\`\`\``)
   assert.deepEqual(replies?.replies, ['Merge #148 et teste BigQuery puis la', 'A', 'B'])
+
+  // CJK lines with an early ASCII space must not collapse to the prefix before that space.
+  const cjk1 =
+    '删掉 #4530，升级算法加语义查重和分语种，官网只发英文文章（按真正英文缺口重建首篇草稿）'
+  const cjk2 = '删掉 #4530，升级算法加语义查重和分语种，官网也允许发日语/波兰语/印尼语/繁中文章'
+  const cjk = replyCard(`${reply}\n\`\`\`replies\n${cjk1}\n${cjk2}\n\`\`\``)
+  assert.deepEqual(cjk.replies?.replies, [cjk1.slice(0, 40), cjk2.slice(0, 40)])
 })
 
 test('reads choices as JSON, and keeps designs only from one options folder', () => {

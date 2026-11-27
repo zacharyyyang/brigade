@@ -5114,11 +5114,11 @@ function SuggestedReplyButtons({
   return (
     <div className="flex flex-col -mt-2 gap-1.5">
       <div className="flex flex-wrap gap-2">
-        {replies.actions?.map((a) =>
+        {replies.actions?.map((a, i) =>
           a.action === 'merge'
             ? pull && (
                 <PullMergeButton
-                  key={`${a.action}:${a.label}`}
+                  key={`${i}:${a.action}:${a.label}`}
                   repository={pull.repository}
                   number={pull.number}
                   label={a.label}
@@ -5127,7 +5127,7 @@ function SuggestedReplyButtons({
             : preview &&
               !preview.live && (
                 <Button
-                  key={`${a.action}:${a.label}`}
+                  key={`${i}:${a.action}:${a.label}`}
                   type="button"
                   size="sm"
                   className="rounded-full"
@@ -5143,9 +5143,9 @@ function SuggestedReplyButtons({
                 </Button>
               ),
         )}
-        {replies.replies.map((reply) => (
+        {replies.replies.map((reply, i) => (
           <Button
-            key={reply}
+            key={`${i}:${reply}`}
             type="button"
             size="sm"
             variant="outline"
