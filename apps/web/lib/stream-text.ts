@@ -52,35 +52,60 @@ function sharedStart(a: string, b: string) {
   return i
 }
 
+/** Whether the page is currently active in front of the user (visible and focused). */
+export function isPageActive(
+  doc: { visibilityState?: string; hasFocus?: () => boolean } | undefined = typeof document ===
+  'undefined'
+    ? undefined
+    : document,
+) {
+  if (!doc) return true
+  return doc.visibilityState === 'visible' && (doc.hasFocus ? doc.hasFocus() : true)
+}
+
 /**
- * The part of `text` to show: word by word from its start when it is `fresh` (it came in while the
- * thread was open, whole or in pieces), at a reading pace that keeps within about half a second of
- * what came, a long reply that came whole over a second or two. Otherwise (an older message, a
- * thread opened after it) it shows whole at once, and so does what it already had then. Text that
- * changes rather than grows (the done message masks a secret, say) shows from where the two still
- * agree.
+ * The part of `text` to show: word by word as new chunks arrive while the page is active.
+ * - When `fresh` is false (already completed when mounted) or the page is inactive, everything
+ *   already generated shows immediately at once.
+ * - When the page leaves active view or returns to active view, any buffered backlog snaps
+ *   immediately to what is already generated; only chunks arriving after returning stream live.
  */
 export function useSmoothText(text: string, fresh: boolean) {
-  const [shown, setShown] = useState(fresh ? 0 : text.length)
+  const startFull = !fresh || !isPageActive()
+  const [shown, setShown] = useState(startFull ? text.length : 0)
   const target = useRef(text)
   // How far it got, in characters, fractions included: the cut shown rounds to a word.
-  const at = useRef(fresh ? 0 : text.length)
+  const at = useRef(startFull ? text.length : 0)
   const frame = useRef<number>(undefined)
   const last = useRef(0)
+
+  const snapToFull = () => {
+    if (frame.current !== undefined) {
+      cancelAnimationFrame(frame.current)
+      frame.current = undefined
+    }
+    const len = target.current.length
+    at.current = len
+    setShown(len)
+  }
 
   useEffect(() => {
     const before = target.current
     target.current = text
     if (!text.startsWith(before.slice(0, Math.floor(at.current))))
       at.current = Math.min(at.current, sharedStart(before, text))
-    if (at.current >= text.length) {
-      at.current = text.length
-      setShown(text.length)
+    // Page is not active: show everything already generated at once, never queue up rAF backlog.
+    if (!isPageActive() || at.current >= text.length) {
+      snapToFull()
       return
     }
     if (frame.current !== undefined) return
     last.current = performance.now()
     const tick = (now: number) => {
+      if (!isPageActive()) {
+        snapToFull()
+        return
+      }
       const dt = Math.min(0.1, (now - last.current) / 1000)
       last.current = now
       const full = target.current
@@ -90,6 +115,23 @@ export function useSmoothText(text: string, fresh: boolean) {
     }
     frame.current = requestAnimationFrame(tick)
   }, [text])
+
+  // Whenever the page leaves active view or comes back into view, flush everything already
+  // generated so returning to a backgrounded tab never replays stale text.
+  useEffect(() => {
+    if (typeof document === 'undefined' || typeof window === 'undefined') return
+    const flush = () => {
+      if (at.current < target.current.length) snapToFull()
+    }
+    document.addEventListener('visibilitychange', flush)
+    window.addEventListener('blur', flush)
+    window.addEventListener('focus', flush)
+    return () => {
+      document.removeEventListener('visibilitychange', flush)
+      window.removeEventListener('blur', flush)
+      window.removeEventListener('focus', flush)
+    }
+  }, [])
 
   useEffect(
     () => () => {

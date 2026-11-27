@@ -2170,16 +2170,15 @@ const ToolStep = memo(
 )
 
 /** What a teammate thought on its way, folded. */
-/** A reply whose first piece came this recently when it first shows is revealed as it is written. */
-const FRESH_MS = 15_000
+/** A reply whose first chunk arrived moments ago while this thread is actively open streams from start. */
+const LIVE_CHUNK_MS = 2_000
 
-/**
- * A teammate's reply, revealed word by word as it streams in rather than in the bursts it comes
- * in, its open Markdown closed meanwhile (lib/stream-text.ts). One done when it shows, shows whole.
- */
 function StreamedReply({ text, done, at }: { text: string; done: boolean; at: number }) {
-  // Came in while the thread was open: written out from its start, even when it came whole.
-  const [fresh] = useState(() => !done || Date.now() - at < FRESH_MS)
+  // Already done when mounted: always show full text immediately (no replay).
+  // Still streaming when mounted: only start from 0 if the very first chunk just arrived on an
+  // active page; otherwise (opened mid-stream or after being backgrounded) show everything already
+  // generated at once and stream only newly arriving chunks.
+  const [fresh] = useState(() => !done && Date.now() - at < LIVE_CHUNK_MS)
   const shown = useSmoothText(text, fresh)
   const revealing = !done || shown.length < text.length
   return <Markdown text={revealing ? closeOpenMarkdown(shown) : text} streaming={revealing} />

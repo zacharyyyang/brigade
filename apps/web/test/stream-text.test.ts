@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
-import { closeOpenMarkdown, revealStep, wordCut } from '../lib/stream-text'
+import { closeOpenMarkdown, isPageActive, revealStep, wordCut } from '../lib/stream-text'
 
 test('a cut ends with a word, never inside one', () => {
   const text = 'Je te conseille une adresse'
@@ -91,4 +91,11 @@ test('closed Markdown, earlier paragraphs and fenced code stay as they are', () 
   assert.equal(closeOpenMarkdown('**a\n\nb'), '**a\n\nb')
   assert.equal(closeOpenMarkdown('```ts\nconst a = `x'), '```ts\nconst a = `x')
   assert.equal(closeOpenMarkdown('```ts\nx\n```\nun **b'), '```ts\nx\n```\nun **b**')
+})
+
+test('isPageActive is true only when visible and focused', () => {
+  assert.equal(isPageActive({ visibilityState: 'visible', hasFocus: () => true }), true)
+  assert.equal(isPageActive({ visibilityState: 'hidden', hasFocus: () => true }), false)
+  assert.equal(isPageActive({ visibilityState: 'visible', hasFocus: () => false }), false)
+  assert.equal(isPageActive(undefined), true)
 })
