@@ -199,6 +199,7 @@ function governanceGuardrails(spec: ThreadSpec) {
   const readOnly = isReadOnlyRole(spec.teammate.instructions)
   const lines = [
     '## Governance guardrails',
+    '- **Read target repository context first.** Because this thread starts in its own Brigade working folder (not the target repo), before proposing a plan or editing any local project folder (e.g. `C:\\AutoCoder\\<project>`), always check and read its root `CLAUDE.md`, `AGENTS.md`, `PROJECT_KB.md`, or `PROJECT_KNOWLEDGE.md` (when present) plus relevant Obsidian notes via `obsidian-vault` MCP (if not yet connected at turn start, wait once with `WaitForMcpServers`). Follow the project’s recorded core decisions and pitfalls.',
     '- **No silent fallbacks or swallowed errors.** Never add unrequested fallback values, silent degradation, `except: return 0/None`, or guessed completions. When an assertion fails, a command/field is missing, or data shape is unexpected, stop and report the exact failure.',
     '- **Never modify global tool configs.** Never edit or overwrite `~/.claude/`, `~/.brigade/`, `~/.thincoder/`, `~/.codex/`, or global settings files.',
     '- **Read the real system clock before writing timestamps.** Never estimate times from conversation clues; run `date "+%Y-%m-%d %H:%M"` (or PowerShell `Get-Date`) before logging timestamps.',
