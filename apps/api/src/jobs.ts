@@ -56,7 +56,7 @@ type Job = {
    * How often it runs, in seconds; none: only when asked for (enqueue), for one row. A job
    * that runs each minute or more often starts on the minute: a 07:00 schedule fires at 07:00.
    */
-  every?: 30 | 60 | 600 | 3600
+  every?: 10 | 30 | 60 | 600 | 3600
   /** Workspaces with work due now. Absent: the job is no workspace's, and runs once for all. */
   due?: (now: Date) => Promise<string[]>
   run: (key: string | null, now: Date) => Promise<unknown>
@@ -119,7 +119,7 @@ export const JOBS = {
   },
 
   // No workspace's.
-  notifications: { every: 30, run: (_key, now) => sweepNotifications(now) },
+  notifications: { every: 10, run: (_key, now) => sweepNotifications(now) },
   'mail-outbound': { every: 60, run: () => mailMinute() },
   inbound: { every: 60, run: () => processDueInbound() },
   'runner-commands-given-up': { every: 60, run: (_key, now) => giveUp(now.getTime()) },
@@ -242,6 +242,10 @@ export async function dueMessages(now = new Date()) {
       messages.push({ body: { job: name, key } })
       // More often than each minute: again, later in the minute.
       if (job.every === 30) messages.push({ body: { job: name, key }, delaySeconds: 30 })
+      if (job.every === 10) {
+        for (const delaySeconds of [10, 20, 30, 40, 50])
+          messages.push({ body: { job: name, key }, delaySeconds })
+      }
     }
   }
   return messages

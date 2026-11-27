@@ -37,14 +37,13 @@ import { waitingNow } from './pull-requests.js'
 import { rootOf } from './thread-root.js'
 import { sendPush, type Vapid } from './web-push.js'
 
-const SWEEP_MS = 30_000
-/** A Needs you item waits this long before it is sent: most settle sooner. */
-const SETTLE_MS = 60_000
+/** A Needs you item waits this long before it is sent (short enough to feel prompt when tabbed away). */
+const SETTLE_MS = 5_000
 /** One reminder for an item still waiting this long after its push. */
 const REMIND_MS = 4 * 60 * 60_000
-/** A member who looked at a dashboard this recently is not notified. */
-const LOOKING_MS = 2 * 60_000
-const PUSHES_PER_HOUR = 4
+/** Only suppress notifications while a dashboard tab is actively visible/focused right now. */
+const LOOKING_MS = 0
+const PUSHES_PER_HOUR = 60
 /** Finished work and replies are news for this long; older, they are not sent. */
 const FRESH_MS = 15 * 60_000
 /** What was sent is kept this long once over: past the cap's hour and the news window. */
